@@ -240,7 +240,7 @@ if __name__ == "__main__":
     test_img_dir = '/media/jxgu/d2ta/dataset/ai_challenger/ai_challenger_caption_test1_20170923/caption_test1_images_20170923'
     # Convert json (ai challenger) to coco format
     convert2coco(train_caption_json, train_img_dir)
-    convert2coco(val_caption_json, val_img_dir)
+    convert2coco_val(val_caption_json, val_img_dir)
     # Create json file for testing
     convert2coco_eval(test_img_dir)
     # Create json file for evaluation
