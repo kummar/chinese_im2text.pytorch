@@ -43,7 +43,7 @@ preprocess = trn.Compose([
     trn.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
 
-from misc.resnet_utils import myResnet
+from misc.cnn.resnet_utils import myResnet
 import jieba
 
 def prepro_captions(imgs):
@@ -115,12 +115,11 @@ def build_vocab(imgs, params):
                         s_.append(w)
                     else:
                         s_.append('UNK')
-                caption.append(s_)
+            caption.append(s_)
                 #caption = [w if counts.get(w, 0) > count_thr else 'UNK' for w in txt]
-            img['final_captions'].append(caption)
+        img['final_captions'].append(caption)
 
     return vocab
-
 
 def assign_splits(imgs, params):
   num_val = params['num_val']
@@ -134,7 +133,6 @@ def assign_splits(imgs, params):
 
   print 'assigned %d to val, %d to test.' % (num_val, num_test)
 
-
 def encode_captions(imgs, params, wtoi):
     """
     encode all captions into one large array, which will be 1-indexed.
@@ -145,7 +143,11 @@ def encode_captions(imgs, params, wtoi):
 
     max_length = params['max_length']
     N = len(imgs)
+    M = 0
+    #for img in imgs:
+    #    M = M + len(img['final_captions'])
     M = sum(len(img['final_captions']) for img in imgs)  # total number of captions
+    print('Total number of captions:' + str(N))
     print('Total number of captions:' + str(M))
     label_arrays = []
     label_start_ix = np.zeros(N, dtype='uint32')  # note: these will be one-indexed
@@ -184,9 +186,6 @@ def main(params):
     imgs = json.load(open(params['input_json'], 'r'))
     #imgs = imgs['images']
 
-    # assign the splits
-    assign_splits(imgs, params)
-
     seed(123)  # make reproducible
     #shuffle(imgs)  # shuffle the order
     prepro_captions(imgs)
@@ -196,21 +195,29 @@ def main(params):
     itow = {i + 1: w for i, w in enumerate(vocab)}  # a 1-indexed vocab translation table
     wtoi = {w: i + 1 for i, w in enumerate(vocab)}  # inverse table
 
+    # assign the splits
+    assign_splits(imgs, params)
+
     # encode captions in large arrays, ready to ship to hdf5 file
     L, label_start_ix, label_end_ix, label_length = encode_captions(imgs, params, wtoi)
 
     import misc.cnn.resnet as resnet
-    resnet = resnet.resnet101()
-    resnet.load_state_dict(torch.load('misc/resnet101.pth'))
+    resnet_type = 'resnet151'
+    if resnet_type == 'resnet101':
+        resnet = resnet.resnet101()
+        resnet.load_state_dict(torch.load('resnet/resnet101.pth'))
+    else:
+        resnet = resnet.resnet152()
+        resnet.load_state_dict(torch.load('resnet/resnet152.pth'))
     my_resnet = myResnet(resnet)
     my_resnet.cuda()
     my_resnet.eval()
 
     # create output h5 file
     N = len(imgs)
-    f_lb = h5py.File(params['output_h5'] + '_label.h5', "w")
-    f_fc = h5py.File(params['output_h5'] + '_fc.h5', "w")
-    f_att = h5py.File(params['output_h5'] + '_att.h5', "w")
+    f_lb = h5py.File(params['output_h5'] + '_'+ resnet_type +'_label.h5', "w")
+    f_fc = h5py.File(params['output_h5'] + '_'+ resnet_type +'_fc.h5', "w")
+    f_att = h5py.File(params['output_h5'] + '_'+ resnet_type +'_att.h5', "w")
     f_lb.create_dataset("labels", dtype='uint32', data=L)
     f_lb.create_dataset("label_start_ix", dtype='uint32', data=label_start_ix)
     f_lb.create_dataset("label_end_ix", dtype='uint32', data=label_end_ix)
@@ -261,17 +268,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # input json
-    parser.add_argument('--input_json', default='/home/jxgu/github/chinese_im2text.pytorch/data/ai_challenger/coco_ai_challenger_raw.json',
+    parser.add_argument('--input_json', default='/home/vtt/dataset/ai_challenger/coco_ai_challenger_raw.json',
                         help='input json file to process into hdf5')
     parser.add_argument('--num_val', default=30000, type=int,
                         help='number of images to assign to validation data (for CV etc)')
-    parser.add_argument('--output_json', default='/home/jxgu/github/chinese_im2text.pytorch/data/ai_challenger/coco_ai_challenger_talk.json', help='output json file')
-    parser.add_argument('--output_h5', default='/home/jxgu/github/chinese_im2text.pytorch/data/ai_challenger/coco_ai_challenger_talk', help='output h5 file')
+    parser.add_argument('--output_json', default='/home/vtt/dataset/ai_challenger/coco_ai_challenger_talk.json', help='output json file')
+    parser.add_argument('--output_h5', default='/home/vtt/dataset/ai_challenger/coco_ai_challenger_talk', help='output h5 file')
 
     # options
     parser.add_argument('--max_length', default=32, type=int,
                         help='max length of a caption, in number of words. captions longer than this get clipped.')
-    parser.add_argument('--images_root', default='ai_challenger', # Note that all images are save in `images` folder under this folder
+    parser.add_argument('--images_root', default='/home/vtt/dataset/ai_challenger',
                         help='root location in which images are stored, to be prepended to file_path in input json')
     parser.add_argument('--word_count_threshold', default=5, type=int,
                         help='only words that occur more than this number of times will be put in vocab')
