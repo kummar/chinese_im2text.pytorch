@@ -1,45 +1,50 @@
-# chinese_im2text.pytorch
+# Self-critical Sequence Training for Image Captioning
 
-This project is based on ruotian's [neuraltalk2.pytorch](https://github.com/ruotianluo/neuraltalk2.pytorch).
+This is an unofficial implementation for [Self-critical Sequence Training for Image Captioning](https://arxiv.org/abs/1612.00563). The result of FC model can be replicated. (Not able to replicate Att2in result.)
+
+The author helped me a lot when I tried to replicate the result. Great thanks. The latest topdown and att2in2 model can achieve 1.12 Cider score on Karpathy's test split after self-critical training.
+
+This is based on my [neuraltalk2.pytorch](https://github.com/ruotianluo/neuraltalk2.pytorch) repository. The modifications is:
+- Add self critical training.
 
 ## Requirements
+Python 2.7 (because there is no [coco-caption](https://github.com/tylin/coco-caption) version for python 3)
+PyTorch 0.2 (along with torchvision)
 
-### Software enviroment
-Python 2.7 (because there is no [coco-caption](https://github.com/tylin/coco-caption) version for python 3), PyTorch 0.2 (along with torchvision). 
-
-### Dataset
-You need to download pretrained resnet model for both training and evaluation, and you need to register the ai challenger, and then download the training and validation dataset.
+You need to download pretrained resnet model for both training and evaluation. The models can be downloaded from [here](https://drive.google.com/open?id=0B7fNdx_jAqhtbVYzOURMdDNHSGM), and should be placed in `data/imagenet_weights`.
 
 ## Pretrained models
+Pretrained models are provided [here](https://drive.google.com/open?id=0B7fNdx_jAqhtdE1JRXpmeGJudTg). And the performances of each model will be maintained in this [issue](https://github.com/ruotianluo/neuraltalk2.pytorch/issues/10).
 
-TODO
+If you want to do evaluation only, then you can follow [this section](#generate-image-captions) after downloading the pretrained models.
 
-## Train your own network on AI Challenger
-### Download AI Challenger dataset and preprocessing
-First, download the 图像中文描述数据库 from [link](https://challenger.ai/datasets). We need training images (210,000) and val images (30,000). You should put the `ai_challenger_caption_train_20170902/` and `ai_challenger_caption_train_20170902/` in the same directory, denoted as `$IMAGE_ROOT`. Once we have these, we can now invoke the `json_preprocess.py` and `prepro_ai_challenger.py` script, which will read all of this in and create a dataset (two feature folders, a hdf5 label file and a json file).
+## Train your own network on COCO
+
+### Download COCO dataset and preprocessing
+
+First, download the coco images from [link](http://mscoco.org/dataset/#download). We need 2014 training images and 2014 val. images. You should put the `train2014/` and `val2014/` in the same directory, denoted as `$IMAGE_ROOT`.
+
+Download preprocessed coco captions from [link](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip) from Karpathy's homepage. Extract `dataset_coco.json` from the zip file and copy it in to `data/`. This file provides preprocessed captions and also standard train-val-test splits.
+
+Once we have these, we can now invoke the `prepro_*.py` script, which will read all of this in and create a dataset (two feature folders, a hdf5 label file and a json file).
 
 ```bash
-$ python scripts/json_preprocess.py
-$ python scripts/prepro_ai_challenger.py
+$ python scripts/prepro_labels.py --input_json data/dataset_coco.json --output_json data/cocotalk.json --output_h5 data/cocotalk
+$ python scripts/prepro_feats.py --input_json data/dataset_coco.json --output_dir data/cocotalk --images_root $IMAGE_ROOT
 ```
 
-`json_preprocess.py` will first transform the AI challenger Image Caption_json to mscoco json format. Then map all words that occur <= 5 times to a special `UNK` token, and create a vocabulary for all the remaining words. The image information and vocabulary are dumped into `coco_ai_challenger_raw.json`.
-This file also generates the `coco_val_caption_validation_annotations_20170910.json` for evaluation metric calcuation, you can find the json files in the following folder:
-```bash
-# For metric calcuation
-chinese_im2text.pytorch/caption_eval/data/coco_val_caption_validation_annotations_20170910.json
-# For preprocessing
-chinese_im2text.pytorch/caption_eval/data/coco_caption_validation_annotations_20170910.json
-```
+`prepro_labels.py` will map all words that occur <= 5 times to a special `UNK` token, and create a vocabulary for all the remaining words. The image information and vocabulary are dumped into `data/cocotalk.json` and discretized caption data are dumped into `data/cocotalk_label.h5`.
 
-`prepro_ai_challenger.py` extract the resnet101 features (both fc feature and last conv feature) of each image. The features are saved in `coco_ai_challenger_talk_fc.h5` and `coco_ai_challenger_talk_att.h5`, and resulting files are about 359GB.
+`prepro_feats.py` extract the resnet101 features (both fc feature and last conv feature) of each image. The features are saved in `data/cocotalk_fc` and `data/cocotalk_att`, and resulting files are about 200GB.
 
+(Check the prepro scripts for more options, like other resnet models or other attention sizes.)
+
+**Warning**: the prepro script will fail with the default MSCOCO data because one of their images is corrupted. See [this issue](https://github.com/karpathy/neuraltalk2/issues/4) for the fix, it involves manually replacing one image in the dataset.
 
 ### Start training
-The following training procedure are adopted from ruotian's project, and if you need REINFORCEMENT-based approach, you can clone from [here](https://github.com/ruotianluo/self-critical.pytorch). For ai challenger, they provide large number of validation size, you can set `--val_images_use` to a bigger size.
 
 ```bash
-$ python train.py --id st --caption_model show_tell --input_json data/cocotalk.json --input_fc_h5 data/coco_ai_challenger_talk_fc.h5 --input_att_h5 data/coco_ai_challenger_talk_att.h5 --input_label_h5 data/coco_ai_challenger_talk_label.h5 --batch_size 10 --learning_rate 5e-4 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --checkpoint_path log_st --save_checkpoint_every 6000 --val_images_use 5000 --max_epochs 25
+$ python train.py --id fc --caption_model fc --input_json data/cocotalk.json --input_fc_dir data/cocotalk_fc --input_att_dir data/cocotalk_att --input_label_h5 data/cocotalk_label.h5 --batch_size 10 --learning_rate 5e-4 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --checkpoint_path log_fc --save_checkpoint_every 6000 --val_images_use 5000 --max_epochs 30
 ```
 
 The train script will dump checkpoints into the folder specified by `--checkpoint_path` (default = `save/`). We only save the best-performing checkpoint on validation and the latest checkpoint to save disk space.
@@ -54,29 +59,32 @@ If you'd like to evaluate BLEU/METEOR/CIDEr scores during training in addition t
 
 For more options, see `opts.py`. 
 
-Currently, the training loss of my baseline model is as follows:
-![](./vis/training_log_mine.png)
+**A few notes on training.** To give you an idea, with the default settings one epoch of MS COCO images is about 11000 iterations. After 1 epoch of training results in validation loss ~2.5 and CIDEr score of ~0.68. By iteration 60,000 CIDEr climbs up to about ~0.84 (validation loss at about 2.4 (under scheduled sampling)).
 
-And I set the beam size to 5 during testing, and some predicted descriptions are as follows (image xxx, xxx is the image ID):
+### Train using self critical
+
+First you should preprocess the dataset and get the cache for calculating cider score:
+```
+$ python scripts/prepro_ngrams.py --input_json .../dataset_coco.json --dict_json data/cocotalk.json --output_pkl data/coco-train --split train
+```
+
+And also you need to clone my forked [cider](https://github.com/ruotianluo/cider) repository.
+
+Then, copy the model from the pretrained model using cross entropy. (It's not mandatory to copy the model, just for back-up)
+```
+$ bash scripts/copy_model.sh fc fc_rl
+```
+
+Then
 ```bash
-..
-Beam size: 5, image 2550: 一个穿着裙子的女人走在道路上
-Beam size: 5, image 2551: 房间里有一个穿着白色上衣的女人在给一个
-Beam size: 5, image 2596: 一个穿着运动服的男人在运动场上奔跑
-Beam size: 5, image 2599: 一个穿着裙子的女人站在广告牌前的红毯上
-...
+$ python train.py --id fc_rl --caption_model fc --input_json data/cocotalk.json --input_fc_dir data/cocotalk_fc --input_att_dir data/cocotalk_att --input_label_h5 data/cocotalk_label.h5 --batch_size 10 --learning_rate 5e-5 --start_from log_fc_rl --checkpoint_path log_fc_rl --save_checkpoint_every 6000 --language_eval 1 --val_images_use 5000 --self_critical_after 30
 ```
-After 18,000 steps, I evaluated my model on the 1,0000 val images, and can achieve the following results:
-```
-Bleu_1: 0.754
-Bleu_2: 0.630
-Bleu_3: 0.522
-Bleu_4: 0.432
-METEOR: 0.369
-ROUGE_L: 0.615
-CIDEr: 1.234
-```
-However, when I try to upload my testing results (the test json file can be found in data folder), the online server always failed, and they did not tell me why! WHAT A MESS!
+
+You will see a huge boost on Cider score, : ).
+
+**A few notes on training.** Starting self-critical training after 30 epochs, the CIDEr score goes up to 1.05 after 600k iterations (including the 30 epochs pertraining).
+
+### Caption images after training
 
 ## Generate image captions
 
@@ -97,13 +105,7 @@ $ python -m SimpleHTTPServer
 
 Now visit `localhost:8000` in your browser and you should see your predicted captions.
 
-### Evaluate on validation split
-
-For evaluation, you can use the offical evaluation tool provide by AIChallenger. And I modified their code, and you can find it in
-```bash
-caption_eval
-```
-The GT annotations are also provided.
+### Evaluate on Karpathy's test split
 
 ```bash
 $ python eval.py --dump_images 0 --num_images 5000 --model model.pth --infos_path infos.pkl --language_eval 1 
@@ -111,29 +113,15 @@ $ python eval.py --dump_images 0 --num_images 5000 --model model.pth --infos_pat
 
 The defualt split to evaluate is test. The default inference method is greedy decoding (`--sample_max 1`), to sample from the posterior, set `--sample_max 0`.
 
-**Beam Search**. Beam search can increase the performance of the search for greedy decoding sequence by ~5%. However, this is a little more expensive. To turn on the beam search, use `--beam_size N`, N should be greater than 1 (we set beam size to 5 in our eval).
+**Beam Search**. Beam search can increase the performance of the search for greedy decoding sequence by ~5%. However, this is a little more expensive. To turn on the beam search, use `--beam_size N`, N should be greater than 1.
+
+## Miscellanea
+**Using cpu**. The code is currently defaultly using gpu; there is even no option for switching. If someone highly needs a cpu model, please open an issue; I can potentially create a cpu checkpoint and modify the eval.py to run the model on cpu. However, there's no point using cpu to train the model.
+
+**Train on other dataset**. It should be trivial to port if you can create a file like `dataset_coco.json` for your own dataset.
+
+**Live demo**. Not supported now. Welcome pull request.
 
 ## Acknowledgements
 
-Thanks the original [neuraltalk2](https://github.com/karpathy/neuraltalk2), and the pytorch-based [neuraltalk2.pytorch](https://github.com/ruotianluo/neuraltalk2.pytorch) and awesome PyTorch team.
-
-## Paper
-
-1. Jiuxiang Gu, Gang Wang, Jianfei Cai, and Tsuhan Chen. ["An Empirical Study of Language CNN for Image Captioning."](https://arxiv.org/pdf/1612.07086.pdf) ICCV, 2017.
-```
-@article{gu2016recurrent,
-  title={An Empirical Study of Language CNN for Image Captioning},
-  author={Gu, Jiuxiang and Wang, Gang and Cai, Jianfei and Chen, Tsuhan},
-  journal={ICCV},
-  year={2017}
-}
-```
-2. Jiuxiang Gu, Jianfei cai, Gang Wang, and Tsuhan Chen. ["Stack-Captioning: Coarse-to-Fine Learning for Image Captioning."](https://arxiv.org/abs/1709.03376) arXiv preprint arXiv:1709.03376 (2017).
-```
-@article{gu2017stack_cap,
-  title={Stack-Captioning: Coarse-to-Fine Learning for Image Captioning},
-  author={Gu, Jiuxiang and Cai, Jianfei and Wang, Gang and Chen, Tsuhan},
-  journal={arXiv preprint arXiv:1709.03376},
-  year={2017}
-}
-```
+Thanks the original [neuraltalk2](https://github.com/karpathy/neuraltalk2) and awesome PyTorch team.

@@ -27,7 +27,7 @@ def language_eval_chinese(dataset, preds, model_id, split):
     if not os.path.isdir('eval_results'):
         os.mkdir('eval_results')
     cache_path = os.path.join('eval_results/', model_id + '_' + split + '.json')
-    reference_file = 'caption_eval/data/coco_val_caption_validation_annotations_20170910.json'
+    reference_file = 'data/coco_val_caption_validation_annotations_20170910.json'
     coco = COCO(reference_file)
     valids = coco.getImgIds()
 
@@ -52,12 +52,8 @@ def language_eval_chinese(dataset, preds, model_id, split):
 
 def language_eval(dataset, preds, model_id, split):
     import sys
-    if 'coco' in dataset:
-        sys.path.append("coco-caption")
-        annFile = 'coco-caption/annotations/captions_val2014.json'
-    else:
-        sys.path.append("f30k-caption")
-        annFile = 'f30k-caption/annotations/dataset_flickr30k.json'
+    sys.path.append("coco-caption")
+    annFile = 'coco-caption/annotations/captions_val2014.json'
     from pycocotools.coco import COCO
     from pycocoevalcap.eval import COCOEvalCap
 
@@ -120,7 +116,13 @@ def eval_split(model, crit, loader, eval_kwargs={}):
             # forward the model to get loss
             tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks']]
             tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
-            fc_feats, att_feats, labels, masks = tmp
+            _fc_feats, _att_feats, labels, masks = tmp
+            fc_feats = _fc_feats.unsqueeze(1).expand(
+                *((_fc_feats.size(0), loader.seq_per_img,) + _fc_feats.size()[1:])).contiguous().view(
+                *((_fc_feats.size(0) * loader.seq_per_img,) + _fc_feats.size()[1:]))
+            att_feats = _att_feats.unsqueeze(1).expand(
+                *((_att_feats.size(0), loader.seq_per_img,) + _att_feats.size()[1:])).contiguous().view(
+                *((_att_feats.size(0) * loader.seq_per_img,) + _att_feats.size()[1:]))
 
             loss = crit(model(fc_feats, att_feats, labels), labels[:,1:], masks[:,1:]).data[0]
             loss_sum = loss_sum + loss
@@ -128,10 +130,12 @@ def eval_split(model, crit, loader, eval_kwargs={}):
 
         # forward the model to also get generated samples for each image
         # Only leave one feature for each image, in case duplicate sample
-        tmp = [data['fc_feats'][np.arange(loader.batch_size) * loader.seq_per_img], 
-            data['att_feats'][np.arange(loader.batch_size) * loader.seq_per_img]]
-        tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
-        fc_feats, att_feats = tmp
+        #tmp = [data['fc_feats'][np.arange(loader.batch_size) * loader.seq_per_img], 
+        #    data['att_feats'][np.arange(loader.batch_size) * loader.seq_per_img]]
+        #tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
+        #fc_feats, att_feats = tmp
+        att_feats = _att_feats
+        fc_feats = _fc_feats
         # forward the model to also get generated samples for each image
         seq, _ = model.sample(fc_feats, att_feats, eval_kwargs)
         

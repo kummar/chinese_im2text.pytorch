@@ -24,15 +24,13 @@ Load data from h5 files
 '''
 class DataLoader():
     def reset_iterator(self, split):
-        # if load files from directory, then reset the prefetch process
         self.iterators[split] = 0
 
     def get_vocab_size(self):
         return self.vocab_size
 
     def get_vocab(self):
-        vocabulary = self.ex_vocab['rt_topdown_vocab'] if self.exchange_vocab else self.ix_to_word
-        return vocabulary
+        return self.ix_to_word
 
     def get_seq_length(self):
         return self.seq_length
@@ -93,8 +91,8 @@ class DataLoader():
         batch_size = batch_size or self.batch_size
         seq_per_img = seq_per_img or self.seq_per_img
 
-        fc_batch = np.ndarray((batch_size, self.fc_feat_size), dtype = 'float32') if self.pre_ft else None
-        att_batch = np.ndarray((batch_size, 14, 14, self.att_feat_size), dtype = 'float32') if self.pre_ft and self.att_im else None
+        fc_batch = np.ndarray((batch_size, self.fc_feat_size), dtype = 'float32')
+        att_batch = np.ndarray((batch_size, 14, 14, self.att_feat_size), dtype = 'float32')
         label_batch = np.zeros([batch_size * self.seq_per_img, self.seq_length + 2], dtype = 'int')
         mask_batch = np.zeros([batch_size * self.seq_per_img, self.seq_length + 2], dtype = 'float32')
 
