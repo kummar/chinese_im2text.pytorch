@@ -66,18 +66,6 @@ Beam size: 5, image 2596: 一个穿着运动服的男人在运动场上奔跑
 Beam size: 5, image 2599: 一个穿着裙子的女人站在广告牌前的红毯上
 ...
 ```
-After 18,000 steps, I evaluated my model on the 1,0000 val images, and can achieve the following results:
-```
-Bleu_1: 0.754
-Bleu_2: 0.630
-Bleu_3: 0.522
-Bleu_4: 0.432
-METEOR: 0.369
-ROUGE_L: 0.615
-CIDEr: 1.234
-```
-However, when I try to upload my testing results (the test json file can be found in data folder), the online server always failed, and they did not tell me why! WHAT A MESS!
-
 ## Generate image captions
 
 ### Evaluate on raw images
@@ -117,23 +105,3 @@ The defualt split to evaluate is test. The default inference method is greedy de
 
 Thanks the original [neuraltalk2](https://github.com/karpathy/neuraltalk2), and the pytorch-based [neuraltalk2.pytorch](https://github.com/ruotianluo/neuraltalk2.pytorch) and awesome PyTorch team.
 
-## Paper
-
-1. Jiuxiang Gu, Gang Wang, Jianfei Cai, and Tsuhan Chen. ["An Empirical Study of Language CNN for Image Captioning."](https://arxiv.org/pdf/1612.07086.pdf) ICCV, 2017.
-```
-@article{gu2016recurrent,
-  title={An Empirical Study of Language CNN for Image Captioning},
-  author={Gu, Jiuxiang and Wang, Gang and Cai, Jianfei and Chen, Tsuhan},
-  journal={ICCV},
-  year={2017}
-}
-```
-2. Jiuxiang Gu, Jianfei cai, Gang Wang, and Tsuhan Chen. ["Stack-Captioning: Coarse-to-Fine Learning for Image Captioning."](https://arxiv.org/abs/1709.03376) arXiv preprint arXiv:1709.03376 (2017).
-```
-@article{gu2017stack_cap,
-  title={Stack-Captioning: Coarse-to-Fine Learning for Image Captioning},
-  author={Gu, Jiuxiang and Cai, Jianfei and Wang, Gang and Chen, Tsuhan},
-  journal={arXiv preprint arXiv:1709.03376},
-  year={2017}
-}
-```

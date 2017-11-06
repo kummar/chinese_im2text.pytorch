@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
 import copy
 
@@ -7,21 +11,13 @@ import torch
 
 from .ShowTellModel import ShowTellModel
 from .FCModel import FCModel
-from .CaptionModel import ShowAttendTellModel, AllImgModel
+from .OldModel import ShowAttendTellModel, AllImgModel
 from .Att2inModel import Att2inModel
 from .AttModel import *
 
 def setup(opt):
     
-    if opt.caption_model == 'show_tell':
-        model = ShowTellModel(opt)
-    elif opt.caption_model == 'show_attend_tell':
-        model = ShowAttendTellModel(opt)
-    # img is concatenated with word embedding at every time step as the input of lstm
-    elif opt.caption_model == 'all_img':
-        model = AllImgModel(opt)
-    # FC model in self-critical
-    elif opt.caption_model == 'fc':
+    if opt.caption_model == 'fc':
         model = FCModel(opt)
     # Att2in model in self-critical
     elif opt.caption_model == 'att2in':
